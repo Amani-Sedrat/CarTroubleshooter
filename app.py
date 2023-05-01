@@ -1,62 +1,73 @@
-knowledge_base = {
-    ('engine wont crank', 'dashboard lights on'): 'The problem is with the starter. It needs to be replaced.',
-    ('engine wont crank', 'dashboard lights off'): 'The battery is dead and needs to be recharged or replaced.',
-    ('engine crank slowly', 'clicking noise'): 'The battery is weak and needs to be recharged or replaced.',
-    ('engine crank slowly', 'whirring noise'): 'The starter is faulty and needs to be replaced.',
-    ('engine crank slowly', 'dim lights'): 'The charging system is bad and needs to be repaired or replaced.',
-    ('engine crank slowly', 'normal lights'): 'The battery is weak and needs to be recharged or replaced.',
-    ('engine crank normally', 'immediate stall'): 'The fuel pump is faulty and needs to be replaced.',
-    ('engine crank normally', 'rough idling'): 'The fuel filter is clogged and needs to be replaced.',
-    ('engine crank normally', 'noisy engine'): 'The engine mounts are faulty and need to be replaced.',
-    ('engine runs rough', 'smell of gasoline'): 'The fuel injectors are clogged and need to be cleaned or replaced.',
-    ('engine runs rough', 'smoke from tailpipe'): 'The oxygen sensor is faulty and needs to be replaced.',
-    ('engine runs rough', 'rattling noise'): 'The timing chain is loose and needs to be replaced.',
-    ('engine overheats', 'coolant leak'): 'The water pump is faulty and needs to be replaced.',
-    ('engine overheats', 'low coolant'): 'The radiator is leaking and needs to be repaired or replaced.',
-    ('engine overheats', 'steam from hood'): 'The head gasket is blown and needs to be replaced.',
-    ('car shakes', 'steering wheel vibrates'): 'The wheels are unbalanced and need to be balanced.',
-    ('car shakes', 'brake pedal vibrates'): 'The brake rotors are warped and need to be resurfaced or replaced.',
-    ('car shakes', 'whole car vibrates'): 'The driveshaft is faulty and needs to be repaired or replaced.',
-    ('car pulls to one side', 'uneven tire wear'): 'The wheels are not properly aligned and need to be aligned.',
-    ('car pulls to one side', 'no tire wear'): 'The brake caliper is faulty and needs to be replaced.'
-    
-}
-
-agenda = []
-
-# Define the working memory as a set
-working_memory = set()
-
-# Define a function to perform inference
-def infer(symptoms):
-    global agenda, working_memory
-    # Add the symptoms to the working memory
-    working_memory.update(symptoms)
-    # Check if any of the rules match the current state of the working memory
-    for antecedent, consequent in knowledge_base.items():
-        if set(antecedent).issubset(working_memory):
-            # Add the consequent to the agenda if it's not already in the working memory or agenda
-            if consequent not in working_memory and consequent not in agenda:
-                agenda.append(consequent)
-    # If the agenda is not empty, return the next item on the agenda
-    if agenda:
-        return agenda.pop(0)
-    # Otherwise, return None
-    return None
-
-# Define a Flask app to provide an API endpoint for the inference engine
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-@app.route('/api/infer', methods=['POST'])
-def handle_infer():
-    # Get the symptoms from the request body
-    symptoms = request.json.get('symptoms', [])
-    # Perform inference to find the solution
-    solution = infer(symptoms)
-    # Return the solution as a JSON response
-    return jsonify({'solution': solution})
+# define knowledge base
+knowledge_base = {
+    'rules': [
+        {'condition': ['engine starts', 'fuel tank not empty'], 'action': 'check fuel pump'},
+        {'condition': ['engine starts', 'fuel tank empty'], 'action': 'check fuel level'},
+        {'condition': ['engine starts', 'fuel pump working', 'air filter clean'], 'action': 'no problem found'},
+        {'condition': ['engine starts', 'fuel pump working', 'air filter dirty'], 'action': 'replace air filter'},
+        {'condition': ['engine starts', 'fuel pump not working'], 'action': 'replace fuel pump'},
+        {'condition': ['engine does not start'], 'action': 'check battery'},
+        {'condition': ['battery faulty'], 'action': 'replace battery'},
+        {'condition': ['oil light on'], 'action': 'check oil level'},
+        {'condition': ['oil level low'], 'action': 'add oil'},
+        {'condition': ['oil leak'], 'action': 'check engine gasket'},
+        {'condition': ['brakes squeaking'], 'action': 'replace brake pads'},
+        {'condition': ['brakes not responding'], 'action': 'check brake fluid'},
+        {'condition': ['brake fluid low'], 'action': 'add brake fluid'},
+        {'condition': ['steering wheel vibrating'], 'action': 'balance wheels'},
+        {'condition': ['car pulls to one side'], 'action': 'check wheel alignment'},
+        {'condition': ['check engine light on'], 'action': 'check engine error codes'},
+        {'condition': ['engine overheating'], 'action': 'check coolant level'},
+        {'condition': ['coolant level low'], 'action': 'add coolant'}
+    ],
+    'facts': {
+        'engine starts': False,
+        'fuel tank not empty': False,
+        'fuel tank empty': False,
+        'fuel pump working': False,
+        'air filter clean': False,
+        'air filter dirty': False,
+        'fuel pump not working': False,
+        'engine does not start': False,
+        'battery faulty': False,
+        'oil light on': False,
+        'oil level low': False,
+        'oil leak': False,
+        'brakes squeaking': False,
+        'brakes not responding': False,
+        'brake fluid low': False,
+        'steering wheel vibrating': False,
+        'car pulls to one side': False,
+        'check engine light on': False,
+        'engine overheating': False,
+        'coolant level low': False
+    }
+}
+
+# define working memory
+working_memory = knowledge_base['facts']
+
+# define inference engine
+def inference_engine(knowledge_base):
+    agenda = []
+    for rule in knowledge_base['rules']:
+        if all(knowledge_base['facts'][condition] for condition in rule['condition']):
+            agenda.append(rule['action'])
+    return agenda
+
+# define API endpoint
+@app.route('/infer', methods=['POST'])
+def car_troubleshooter():
+    data = request.get_json()
+    input_data = data['input']
+    if input_data in working_memory:
+        working_memory[input_data] = True
+    agenda = inference_engine(knowledge_base)
+    return jsonify({'actions': agenda})
 
 if __name__ == '__main__':
-    app.run(debug=True,port=8080,use_reloader=False)
+    app.run()

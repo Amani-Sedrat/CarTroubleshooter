@@ -12,7 +12,7 @@ class _InferencePageState extends State<InferencePage> {
   String _solution = '';
 
   Future<void> _submitSymptoms() async {
-    final String apiUrl = 'http://localhost:5000/api/infer';
+    final String apiUrl = 'http://localhost:5000/infer';
     final response = await http.post(
       Uri.parse(apiUrl),
       headers: {'Content-Type': 'application/json'},
